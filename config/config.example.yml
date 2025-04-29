@@ -1,0 +1,24 @@
+server:
+  port: 
+  mode: 
+  log_level: 
+  log_file: "./tmp/console.log"
+  grateful_shutdown:
+    shutdown_time: 
+    read_timeout: 
+    write_timeout: 
+    idle_timeout: 
+
+api:
+  api_service_name: chatbot_gpt
+  api_version: v1.0.0
+  tls_cert_path: "./cert/ws_cert.pem"
+  tls_key_path: "./cert/ws_key.pem"
+
+pkg:
+  openai:
+    token: 
+    models:
+
+  redis:
+    dsn: 
