@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/besanh/chatbot_gpt/config"
+	"github.com/besanh/chatting/config"
 	"github.com/gin-gonic/gin"
 )
 

@@ -5,16 +5,20 @@ import (
 	_ "net/http/pprof"
 	"slices"
 
-	"github.com/besanh/chatbot_gpt/config"
-	server "github.com/besanh/chatbot_gpt/server"
-	"github.com/besanh/chatbot_gpt/service"
+	"github.com/besanh/chatting/config"
+	"github.com/besanh/chatting/pkg/mongodb"
+	"github.com/besanh/chatting/server"
+	"github.com/besanh/chatting/service"
 	"github.com/gin-gonic/gin"
 )
 
-var cfg config.Config
+var (
+	cfg     config.Config
+	mongoDB mongodb.IMongoDBClient
+)
 
 func init() {
-	config.InitConfig(&cfg)
+	config.InitConfig(&cfg, mongoDB)
 }
 
 func main() {

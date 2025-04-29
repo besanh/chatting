@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/besanh/chatbot_gpt/common/util"
+	"github.com/besanh/chatting/common/util"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/redis/go-redis/v9"
 )

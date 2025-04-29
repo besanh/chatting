@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/besanh/chatbot_gpt/pkg/sqlclient"
+	"github.com/besanh/chatting/pkg/sqlclient"
 )
 
 var DBConn sqlclient.ISqlClientConn

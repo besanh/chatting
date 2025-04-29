@@ -1,6 +1,6 @@
 package service
 
-import oauth "github.com/besanh/chatbot_gpt/pkg/oauth2"
+import oauth "github.com/besanh/chatting/pkg/oauth2"
 
 var (
 	OAUTH2CONFIG               *oauth.OAuth2Config

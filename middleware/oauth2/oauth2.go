@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/besanh/chatbot_gpt/common/caching"
-	"github.com/besanh/chatbot_gpt/common/util"
-	"github.com/besanh/chatbot_gpt/model"
-	"github.com/besanh/chatbot_gpt/service"
+	"github.com/besanh/chatting/common/caching"
+	"github.com/besanh/chatting/common/util"
+	"github.com/besanh/chatting/model"
+	"github.com/besanh/chatting/service"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/gin-gonic/gin"
 )

@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/besanh/chatbot_gpt/config"
-	"github.com/besanh/chatbot_gpt/middleware/metric"
-	"github.com/besanh/chatbot_gpt/service"
+	"github.com/besanh/chatting/config"
+	"github.com/besanh/chatting/middleware/metric"
+	"github.com/besanh/chatting/service"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

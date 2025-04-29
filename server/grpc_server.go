@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/besanh/chatbot_gpt/common/response"
+	"github.com/besanh/chatting/common/response"
 	log "github.com/besanh/logger/logging/slog"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"

@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/besanh/chatbot_gpt/common/caching"
-	"github.com/besanh/chatbot_gpt/pkg/redis"
+	"github.com/besanh/chatting/common/caching"
+	messagequeue "github.com/besanh/chatting/pkg/message_queue"
+	"github.com/besanh/chatting/pkg/mongodb"
+	"github.com/besanh/chatting/pkg/redis"
+	"github.com/besanh/chatting/pkg/sqlclient"
+	"github.com/besanh/chatting/repository"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/caarlos0/env"
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,17 +41,47 @@ type Config struct {
 
 	Pkg struct {
 		Openai struct {
+			Enable bool     `mapstructure:"enable"`
 			ApiKey string   `mapstructure:"api_key"`
 			Models []string `mapstructure:"models"`
 		} `mapstructure:"openai"`
 
 		Redis struct {
-			Dsn string `mapstructure:"dsn"`
+			Enable bool   `mapstructure:"enable"`
+			Dsn    string `mapstructure:"dsn"`
 		} `mapstructure:"redis"`
+		PostgreSql struct {
+			Enable       bool   `mapstructure:"enable"`
+			Username     string `mapstructure:"username"`
+			Password     string `mapstructure:"password"`
+			Host         string `mapstructure:"host"`
+			Port         int    `mapstructure:"port"`
+			Database     string `mapstructure:"database"`
+			DialTimeout  int    `mapstructure:"dial_timeout"`
+			ReadTimeout  int    `mapstructure:"read_timeout"`
+			WriteTimeout int    `mapstructure:"write_timeout"`
+			Timeout      int    `mapstructure:"timeout"`
+			PoolSize     int    `mapstructure:"pool_size"`
+			MaxOpenConns int    `mapstructure:"max_open_conns"`
+			MaxIdleConns int    `mapstructure:"max_idle_conns"`
+		}
+		MongoDb struct {
+			Enable        bool   `mapstructure:"enable"`
+			Username      string `mapstructure:"username"`
+			Password      string `mapstructure:"password"`
+			Host          string `mapstructure:"host"`
+			Port          int    `mapstructure:"port"`
+			Database      string `mapstructure:"database"`
+			DefaultAuthDb string `mapstructure:"default_auth_db"`
+		}
+		NatJetstream struct {
+			Enable bool   `mapstructure:"enable"`
+			Dsn    string `mapstructure:"dsn"`
+		}
 	}
 }
 
-func InitConfig(cfg *Config) {
+func InitConfig(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 	if err := env.Parse(cfg); err != nil {
 		panic(err)
 	}
@@ -74,8 +108,13 @@ func InitConfig(cfg *Config) {
 		}
 	}
 
-	initLogger(*cfg)
-	initRedis(*cfg)
+	go func(cfg *Config, mongoDB mongodb.IMongoDBClient) {
+		initLogger(cfg)
+		initRedis(cfg)
+		initMongoDb(cfg, mongoDB)
+		initNatsJetstream(cfg)
+		initSql(cfg)
+	}(cfg, mongoDB)
 
 	registerMetrics()
 }
@@ -107,7 +146,7 @@ func registerMetrics() {
 	)
 }
 
-func initLogger(cfg Config) {
+func initLogger(cfg *Config) {
 	logLevel := log.LEVEL_DEBUG
 	switch cfg.Server.LogLevel {
 	case "debug":
@@ -128,11 +167,67 @@ func initLogger(cfg Config) {
 	log.SetLogger(log.NewSLogger(opts...))
 }
 
-func initRedis(cfg Config) {
+func initRedis(cfg *Config) {
 	redisClient, err := redis.NewRedis(redis.RedisConfig{Dsn: cfg.Pkg.Redis.Dsn})
 	if err != nil {
 		panic(err)
 	}
 
 	caching.RCache = caching.NewRedisCache(redisClient.GetClient())
+}
+
+func initMongoDb(cfg *Config, mongoDB mongodb.IMongoDBClient) {
+	mongodbConfig := mongodb.MongoDBConfig{
+		Username:      cfg.Pkg.MongoDb.Username,
+		Password:      cfg.Pkg.MongoDb.Password,
+		Host:          cfg.Pkg.MongoDb.Host,
+		Port:          cfg.Pkg.MongoDb.Port,
+		Database:      cfg.Pkg.MongoDb.Database,
+		DefaultAuthDb: cfg.Pkg.MongoDb.DefaultAuthDb,
+	}
+
+	var err error
+	var db mongodb.IMongoDBClient
+	db, err = mongodb.NewMongoDBClient(mongodbConfig)
+	if err != nil {
+		// If the connection string is invalid, panic
+		log.Errorf("mongodb connect error: %v", err)
+		panic(err)
+	}
+
+	mongoDB = db
+}
+
+func initNatsJetstream(cfg *Config) {
+	nat := &messagequeue.NatsJetStream{
+		Config: messagequeue.Config{
+			Host: cfg.Pkg.NatJetstream.Dsn,
+		},
+	}
+
+	// Connect to NATS JetStream
+	if err := nat.Connect(); err != nil {
+		// If the connection string is invalid, panic
+		log.Errorf("nats jetstream connect error: %v", err)
+		panic(err)
+	}
+}
+
+func initSql(cfg *Config) {
+	sqlClientConfig := sqlclient.SqlConfig{
+		Host:         cfg.Pkg.PostgreSql.Host,
+		Database:     cfg.Pkg.PostgreSql.Database,
+		Username:     cfg.Pkg.PostgreSql.Username,
+		Password:     cfg.Pkg.PostgreSql.Password,
+		Port:         cfg.Pkg.PostgreSql.Port,
+		DialTimeout:  cfg.Pkg.PostgreSql.DialTimeout,
+		ReadTimeout:  cfg.Pkg.PostgreSql.ReadTimeout,
+		WriteTimeout: cfg.Pkg.PostgreSql.WriteTimeout,
+		Timeout:      cfg.Pkg.PostgreSql.Timeout,
+		PoolSize:     cfg.Pkg.PostgreSql.PoolSize,
+		MaxOpenConns: cfg.Pkg.PostgreSql.MaxOpenConns,
+		MaxIdleConns: cfg.Pkg.PostgreSql.MaxIdleConns,
+		Driver:       sqlclient.POSTGRESQL,
+	}
+	repository.DBConn = sqlclient.NewSqlClient(sqlClientConfig)
 }
