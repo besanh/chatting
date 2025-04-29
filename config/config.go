@@ -46,10 +46,18 @@ type Config struct {
 			Models []string `mapstructure:"models"`
 		} `mapstructure:"openai"`
 
+		Translate struct {
+			Enable  bool     `mapstructure:"enable"`
+			Url     []string `mapstructure:"url"`
+			Timeout int      `mapstructure:"timeout"`
+			Retry   int      `mapstructure:"retry"`
+		}
+
 		Redis struct {
 			Enable bool   `mapstructure:"enable"`
 			Dsn    string `mapstructure:"dsn"`
 		} `mapstructure:"redis"`
+
 		PostgreSql struct {
 			Enable       bool   `mapstructure:"enable"`
 			Username     string `mapstructure:"username"`
@@ -65,6 +73,7 @@ type Config struct {
 			MaxOpenConns int    `mapstructure:"max_open_conns"`
 			MaxIdleConns int    `mapstructure:"max_idle_conns"`
 		}
+
 		MongoDb struct {
 			Enable        bool   `mapstructure:"enable"`
 			Username      string `mapstructure:"username"`
@@ -74,6 +83,7 @@ type Config struct {
 			Database      string `mapstructure:"database"`
 			DefaultAuthDb string `mapstructure:"default_auth_db"`
 		}
+
 		NatJetstream struct {
 			Enable bool   `mapstructure:"enable"`
 			Dsn    string `mapstructure:"dsn"`
@@ -110,10 +120,21 @@ func InitConfig(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 
 	go func(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 		initLogger(cfg)
-		initRedis(cfg)
-		initMongoDb(cfg, mongoDB)
-		initNatsJetstream(cfg)
-		initSql(cfg)
+		if cfg.Pkg.Redis.Enable {
+			initRedis(cfg)
+		}
+
+		if cfg.Pkg.MongoDb.Enable {
+			initMongoDb(cfg, mongoDB)
+		}
+
+		if cfg.Pkg.NatJetstream.Enable {
+			initNatsJetstream(cfg)
+		}
+
+		if cfg.Pkg.PostgreSql.Enable {
+			initSql(cfg)
+		}
 	}(cfg, mongoDB)
 
 	registerMetrics()

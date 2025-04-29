@@ -32,7 +32,8 @@ func NewServer(envMode, port string) *HttpServer {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	engine := gin.New()
+	engine := gin.Default()
+	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
 	engine.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

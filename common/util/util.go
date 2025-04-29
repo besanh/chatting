@@ -155,3 +155,8 @@ func Ternary[T any](condition bool, trueVal T, falseVal T) T {
 	}
 	return falseVal
 }
+
+func RandomChoice[T any](s []T) T {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return s[rng.Intn(len(s))]
+}

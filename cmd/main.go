@@ -29,6 +29,8 @@ func main() {
 	// Init server http
 	httpServer := server.NewServer(cfg.Server.Mode, cfg.Server.Port)
 	initLayers(httpServer.Server)
+
+	httpServer.Start(cfg)
 }
 
 func initLayers(httpRouter *gin.Engine) {
