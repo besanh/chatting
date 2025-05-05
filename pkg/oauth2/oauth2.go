@@ -1,8 +1,9 @@
-package oauth
+package oauth2
 
 import (
 	"context"
 
+	"github.com/besanh/chatting/config"
 	"golang.org/x/oauth2"
 )
 
@@ -14,29 +15,23 @@ type (
 	}
 
 	OAuth2 struct {
-		Config OAuth2Config
-	}
-
-	OAuth2Config struct {
-		ClientId     string
-		ClientSecret string
-		Scopes       []string
-		Endpoint     oauth2.Endpoint
-		Redirect     string
+		Config config.Oauth2
 	}
 )
 
-func NewOAuth2(config OAuth2Config) IOAuth2 {
-	return &OAuth2{Config: config}
+func NewOAuth2(config config.Oauth2) IOAuth2 {
+	return &OAuth2{
+		Config: config,
+	}
 }
 
 func (o *OAuth2) GetClient() *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     o.Config.ClientId,
-		ClientSecret: o.Config.ClientSecret,
-		Scopes:       o.Config.Scopes,
-		Endpoint:     o.Config.Endpoint,
-		RedirectURL:  o.Config.Redirect,
+		ClientID:     o.Config.Google.ClientId,
+		ClientSecret: o.Config.Google.ClientSecret,
+		Scopes:       o.Config.Google.Scope,
+		Endpoint:     o.Config.Google.Endpoint,
+		RedirectURL:  o.Config.Google.RedirectUrl,
 	}
 }
 

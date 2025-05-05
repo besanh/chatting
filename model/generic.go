@@ -15,17 +15,17 @@ type (
 	}
 
 	GBase struct {
-		Id        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
+		Id        string    `json:"id" bun:"id,pk,type:uuid,default:uuid_generate_v4()"`
+		CreatedAt time.Time `bun:"created_at,notnull"`
+		UpdatedAt time.Time `bun:"updated_at,notnull"`
 	}
 )
 
 func (b *GBase) GetId() string {
-	return b.Id.String()
+	return b.Id
 }
 
-func (b *GBase) SetId(id uuid.UUID) {
+func (b *GBase) SetId(id string) {
 	b.Id = id
 }
 
@@ -39,7 +39,7 @@ func (b *GBase) SetUpdatedAt(t time.Time) {
 
 func InitPgBase() *GBase {
 	return &GBase{
-		Id:        uuid.New(),
+		Id:        uuid.NewString(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

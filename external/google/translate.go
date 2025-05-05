@@ -13,14 +13,15 @@ import (
 	"resty.dev/v3"
 )
 
-type IGoogleTranslate interface {
-	GetGoogleTranslateApi(request model.GoogleTranslateApiRequest) (*model.TranslationResponse, error)
-	PostGoogleTranslateApi(url, key string, body []any) (*model.TranslationResponse, error)
-}
-
-type GoogleTranslate struct {
-	config config.Config
-}
+type (
+	IGoogleTranslate interface {
+		GetGoogleTranslateApi(request model.GoogleTranslateApiRequest) (*model.TranslationResponse, error)
+		PostGoogleTranslateApi(url, key string, body []any) (*model.TranslationResponse, error)
+	}
+	GoogleTranslate struct {
+		config config.Config
+	}
+)
 
 func NewGoogleTranslate(cfg config.Config) IGoogleTranslate {
 	return &GoogleTranslate{config: cfg}

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/besanh/chatting/common/caching"
+	cache "github.com/besanh/chatting/common/caching"
 	messagequeue "github.com/besanh/chatting/pkg/message_queue"
 	"github.com/besanh/chatting/pkg/mongodb"
 	"github.com/besanh/chatting/pkg/redis"
@@ -15,11 +15,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/spf13/viper"
+	"golang.org/x/oauth2"
 )
 
-type Config struct {
-	ConfigDir string `envDefault:"./config/config.yml"`
-	Server    struct {
+type (
+	Config struct {
+		ConfigDir string `envDefault:"./config/config.yml"`
+		Server    Server `mapstructure:"server"`
+		Api       Api    `mapstructure:"api"`
+		Pkg       Pkg    `mapstructure:"pkg"`
+	}
+	Server struct {
 		Port             string `mapstructure:"port"`
 		Mode             string `mapstructure:"mode"`
 		LogLevel         string `mapstructure:"log_level"`
@@ -37,7 +43,7 @@ type Config struct {
 		ApiVersion     string `mapstructure:"api_version"`
 		TlsCertPath    string `mapstructure:"tls_cert_path"`
 		TlsKeyPath     string `mapstructure:"tls_key_path"`
-	} `mapstructure:"api"`
+	}
 
 	Pkg struct {
 		Openai struct {
@@ -51,7 +57,7 @@ type Config struct {
 			Url     []string `mapstructure:"url"`
 			Timeout int      `mapstructure:"timeout"`
 			Retry   int      `mapstructure:"retry"`
-		}
+		} `mapstructure:"translate"`
 
 		Redis struct {
 			Enable bool   `mapstructure:"enable"`
@@ -72,7 +78,7 @@ type Config struct {
 			PoolSize     int    `mapstructure:"pool_size"`
 			MaxOpenConns int    `mapstructure:"max_open_conns"`
 			MaxIdleConns int    `mapstructure:"max_idle_conns"`
-		}
+		} `mapstructure:"postgresql"`
 
 		MongoDb struct {
 			Enable        bool   `mapstructure:"enable"`
@@ -82,14 +88,41 @@ type Config struct {
 			Port          int    `mapstructure:"port"`
 			Database      string `mapstructure:"database"`
 			DefaultAuthDb string `mapstructure:"default_auth_db"`
-		}
+		} `mapstructure:"mongo_db"`
 
 		NatJetstream struct {
 			Enable bool   `mapstructure:"enable"`
 			Dsn    string `mapstructure:"dsn"`
-		}
+		} `mapstructure:"nat_jetstream"`
+
+		Oauth2 Oauth2 `mapstructure:"oauth2"`
 	}
-}
+
+	Oauth2 struct {
+		Google GoogleConfig `mapstructure:"google"`
+	}
+
+	GoogleConfigYAML struct {
+		ClientId     string   `mapstructure:"client_id"`
+		ClientSecret string   `mapstructure:"client_secret"`
+		Scope        []string `mapstructure:"scope"`
+		RedirectUrl  string   `mapstructure:"redirect_url"`
+		UserInfoUrl  string   `mapstructure:"user_info_url"`
+		Endpoint     struct {
+			AuthURL  string `mapstructure:"auth_url"`
+			TokenURL string `mapstructure:"token_url"`
+		} `mapstructure:"endpoint"`
+	}
+
+	GoogleConfig struct {
+		ClientId     string   `mapstructure:"client_id"`
+		ClientSecret string   `mapstructure:"client_secret"`
+		Scope        []string `mapstructure:"scope"`
+		Endpoint     oauth2.Endpoint
+		RedirectUrl  string `mapstructure:"redirect_url"`
+		UserInfoUrl  string `mapstructure:"user_info_url"`
+	}
+)
 
 func InitConfig(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 	if err := env.Parse(cfg); err != nil {
@@ -108,6 +141,49 @@ func InitConfig(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 		panic(err)
 	}
 
+	loadGoogleOAuthConfig(cfg)
+	loadModelAI(cfg)
+
+	initLogger(cfg)
+	if cfg.Pkg.Redis.Enable {
+		initRedis(cfg)
+	}
+
+	if cfg.Pkg.MongoDb.Enable {
+		initMongoDb(cfg, mongoDB)
+	}
+
+	if cfg.Pkg.NatJetstream.Enable {
+		initNatsJetstream(cfg)
+	}
+
+	if cfg.Pkg.PostgreSql.Enable {
+		initSql(cfg)
+	}
+
+	registerMetrics()
+}
+
+func loadGoogleOAuthConfig(cfg *Config) {
+	var yamlCfg GoogleConfigYAML
+	if err := viper.UnmarshalKey("pkg.oauth2.google", &yamlCfg); err != nil {
+		log.Fatal("unmarshal failed: %v", err)
+	}
+
+	cfg.Pkg.Oauth2.Google = GoogleConfig{
+		ClientId:     yamlCfg.ClientId,
+		ClientSecret: yamlCfg.ClientSecret,
+		Scope:        yamlCfg.Scope,
+		RedirectUrl:  yamlCfg.RedirectUrl,
+		UserInfoUrl:  yamlCfg.UserInfoUrl,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  yamlCfg.Endpoint.AuthURL,
+			TokenURL: yamlCfg.Endpoint.TokenURL,
+		},
+	}
+}
+
+func loadModelAI(cfg *Config) {
 	if raw := viper.GetString("pkg.openai.models"); raw != "" {
 		var models []string
 		if err := json.Unmarshal([]byte(raw), &models); err != nil {
@@ -117,27 +193,6 @@ func InitConfig(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 			cfg.Pkg.Openai.Models = models
 		}
 	}
-
-	go func(cfg *Config, mongoDB mongodb.IMongoDBClient) {
-		initLogger(cfg)
-		if cfg.Pkg.Redis.Enable {
-			initRedis(cfg)
-		}
-
-		if cfg.Pkg.MongoDb.Enable {
-			initMongoDb(cfg, mongoDB)
-		}
-
-		if cfg.Pkg.NatJetstream.Enable {
-			initNatsJetstream(cfg)
-		}
-
-		if cfg.Pkg.PostgreSql.Enable {
-			initSql(cfg)
-		}
-	}(cfg, mongoDB)
-
-	registerMetrics()
 }
 
 var (
@@ -194,7 +249,7 @@ func initRedis(cfg *Config) {
 		panic(err)
 	}
 
-	caching.RCache = caching.NewRedisCache(redisClient.GetClient())
+	cache.RCache = cache.NewRedisCache(redisClient.GetClient())
 }
 
 func initMongoDb(cfg *Config, mongoDB mongodb.IMongoDBClient) {

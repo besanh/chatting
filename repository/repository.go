@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/besanh/chatting/model"
 	"github.com/besanh/chatting/pkg/sqlclient"
 )
 
@@ -16,7 +17,14 @@ func CreateTable(ctx context.Context, db sqlclient.ISqlClientConn, entity any) (
 }
 
 func InitTables(ctx context.Context, dbConn sqlclient.ISqlClientConn) {
-	// if err := CreateTable(ctx, dbConn, (*model.Example)(nil)); err != nil {
-	// 	log.Error(err)
-	// }
+	if err := CreateTable(ctx, dbConn, (*model.User)(nil)); err != nil {
+		panic(err)
+	}
+}
+
+func InitRepositories() {
+	UserRepo = NewUser()
+}
+
+func InitColumn(ctx context.Context, db sqlclient.ISqlClientConn) {
 }

@@ -1,13 +1,13 @@
 server:
-  port: 
-  mode: 
-  log_level: 
+  port:
+  mode:
+  log_level:
   log_file: "./tmp/console.log"
   grateful_shutdown:
-    shutdown_time: 
-    read_timeout: 
-    write_timeout: 
-    idle_timeout: 
+    shutdown_time:
+    read_timeout:
+    write_timeout:
+    idle_timeout:
 
 api:
   api_service_name: chatbot_gpt
@@ -17,8 +17,46 @@ api:
 
 pkg:
   openai:
-    token: 
+    token:
     models:
 
   redis:
-    dsn: 
+    dsn:
+
+  postgresql:
+    enable: true
+    username:
+    password:
+    host:
+    port:
+    database:
+    dial_timeout:
+    read_timeout:
+    write_timeout:
+    timeout:
+    poolSize:
+    maxOpenConns:
+    maxIdleConns:
+
+  mongodb:
+    enable: true
+    username:
+    password:
+    host:
+    port:
+    database:
+    default_auth_db:
+
+  nat_jetstream:
+    enable: false
+    dsn:
+
+  oauth2:
+    google:
+      client_id:
+      client_secret:
+      scope:
+      auth_url:
+      token_url:
+      redirect_url:
+      user_info_url:

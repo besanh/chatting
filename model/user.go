@@ -3,10 +3,10 @@ package model
 type (
 	User struct {
 		*GBase
-		UserProfile           UserProfile `json:"user_profile" bson:"user_profile"`
-		RefreshTokenEncrypted string      `json:"refresh_token_encrypted" bson:"refresh_token_encrypted"`
-		Status                string      `json:"status" bson:"status"`
-		Scope                 []string    `json:"scope" bson:"scope"`
+		UserProfile           UserProfile `json:"user_profile" bun:"user_profile,type:jsonb,notnull"`
+		RefreshTokenEncrypted string      `json:"refresh_token_encrypted" bun:"refresh_token_encrypted,type:text"`
+		Status                string      `json:"status" bun:"status,type:varchar(50),notnull"`
+		Scope                 []string    `json:"scope" bun:"scope,type:text[]"`
 	}
 
 	UserProfile struct {

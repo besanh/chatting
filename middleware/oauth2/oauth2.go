@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/besanh/chatting/common/caching"
+	cache "github.com/besanh/chatting/common/caching"
 	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/model"
 	"github.com/besanh/chatting/service"
@@ -35,7 +35,7 @@ func parseTokenFromAuthorization(authorizationHeader string) string {
 
 func validateToken(tokenString string) (userInfo *model.User, err error) {
 	// Because the token is stored in redis, so I need to get the user info from it
-	dataCache := caching.RCache.Get(fmt.Sprintf("%s:%s", service.OAUTH2_TOKEN, tokenString))
+	dataCache := cache.RCache.Get(fmt.Sprintf("%s:%s", service.OAUTH2_TOKEN, tokenString))
 	if dataCache == nil {
 		err = fmt.Errorf("invalid token")
 		log.Error(err)
