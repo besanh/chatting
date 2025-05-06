@@ -10,9 +10,6 @@ const (
 var (
 	ENABLE_LOGIN_MULTI_SESSION bool = false
 
-	// Google url get user info
-	GOOGLE_URL_USER_INFO string = ""
-
 	API_SERVICE_NAME string = ""
 	API_VERSION      string = ""
 )

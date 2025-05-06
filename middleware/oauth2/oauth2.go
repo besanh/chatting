@@ -8,6 +8,7 @@ import (
 	cache "github.com/besanh/chatting/common/caching"
 	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/model"
+	"github.com/besanh/chatting/repository"
 	"github.com/besanh/chatting/service"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/gin-gonic/gin"
@@ -62,6 +63,20 @@ func GetUser(c *gin.Context) (result *model.UserResponse, err error) {
 		log.Error(err)
 		return
 	}
+
+	// rawPath := c.Request.URL.Path
+	// if !slices.Contains([]string{"/chatting/user/v1/me"}, rawPath) {
+	// Lookup full user from DB
+	userInfo, errTmp := repository.UserRepo.GetById(c, repository.DBConn, result.Id)
+	if errTmp != nil {
+		err = errTmp
+		log.Error(err)
+		return
+	}
+
+	// Expose the refresh token depends on a condition
+	result.RefreshTokenEncrypted = userInfo.RefreshTokenEncrypted
+	// }
 
 	return
 }

@@ -20,6 +20,7 @@ type IPgRepo[T model.GModel] interface {
 	BulkInsert(ctx context.Context, db sqlclient.ISqlClientConn, entities []T) error
 	TxSelectByQuery(ctx context.Context, tx bun.Tx, params []model.Param, limit, offset int) (entities *[]T, total int, err error)
 	TxInsert(ctx context.Context, tx bun.Tx, entity T) (err error)
+	TxUpdate(ctx context.Context, tx bun.Tx, entity T) (err error)
 }
 
 type PgRepo[T model.GModel] struct {

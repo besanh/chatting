@@ -4,7 +4,7 @@ type (
 	User struct {
 		*GBase
 		UserProfile           UserProfile `json:"user_profile" bun:"user_profile,type:jsonb,notnull"`
-		RefreshTokenEncrypted string      `json:"refresh_token_encrypted" bun:"refresh_token_encrypted,type:text"`
+		RefreshTokenEncrypted string      `json:"refresh_token_encrypted,omitempty" bun:"refresh_token_encrypted,type:text"`
 		Status                string      `json:"status" bun:"status,type:varchar(50),notnull"`
 		Scope                 []string    `json:"scope" bun:"scope,type:text[]"`
 	}
@@ -23,8 +23,9 @@ type (
 
 	UserResponse struct {
 		*GBase
-		UserProfile UserProfile `json:"user_profile"`
-		Status      string      `json:"status"`
-		Scope       []string    `json:"scope"`
+		UserProfile           UserProfile `json:"user_profile"`
+		RefreshTokenEncrypted string      `json:"refresh_token_encrypted,omitempty"`
+		Status                string      `json:"status"`
+		Scope                 []string    `json:"scope"`
 	}
 )

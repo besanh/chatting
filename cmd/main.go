@@ -51,9 +51,8 @@ func initLayers(httpRouter *gin.Engine) {
 
 	// Api
 	oauth2Client := pkgOauth2.NewOAuth2(cfg.Pkg.Oauth2)
-	v1.NewUsers(httpRouter, service.NewUser(repository.UserRepo, oauth2Client))
+	v1.NewUsers(httpRouter, service.NewUser(repository.UserRepo, oauth2Client, cfg))
 
 	// Service
-	service.GOOGLE_URL_USER_INFO = cfg.Pkg.Oauth2.Google.UserInfoUrl
-	service.NewUser(repository.UserRepo, oauth2Client)
+	service.NewUser(repository.UserRepo, oauth2Client, cfg)
 }

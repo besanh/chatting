@@ -106,12 +106,13 @@ type (
 		ClientId     string   `mapstructure:"client_id"`
 		ClientSecret string   `mapstructure:"client_secret"`
 		Scope        []string `mapstructure:"scope"`
-		RedirectUrl  string   `mapstructure:"redirect_url"`
-		UserInfoUrl  string   `mapstructure:"user_info_url"`
 		Endpoint     struct {
 			AuthURL  string `mapstructure:"auth_url"`
 			TokenURL string `mapstructure:"token_url"`
 		} `mapstructure:"endpoint"`
+		RedirectUrl string `mapstructure:"redirect_url"`
+		UserInfoUrl string `mapstructure:"user_info_url"`
+		RevokeUrl   string `mapstructure:"revoke_url"`
 	}
 
 	GoogleConfig struct {
@@ -121,6 +122,7 @@ type (
 		Endpoint     oauth2.Endpoint
 		RedirectUrl  string `mapstructure:"redirect_url"`
 		UserInfoUrl  string `mapstructure:"user_info_url"`
+		RevokeUrl    string `mapstructure:"revoke_url"`
 	}
 )
 
@@ -180,6 +182,7 @@ func loadGoogleOAuthConfig(cfg *Config) {
 			AuthURL:  yamlCfg.Endpoint.AuthURL,
 			TokenURL: yamlCfg.Endpoint.TokenURL,
 		},
+		RevokeUrl: yamlCfg.RevokeUrl,
 	}
 }
 

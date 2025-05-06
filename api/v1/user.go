@@ -1,7 +1,10 @@
 package v1
 
 import (
+	"errors"
+
 	"github.com/besanh/chatting/common/response"
+	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/middleware/oauth2"
 	"github.com/besanh/chatting/model"
 	"github.com/besanh/chatting/service"
@@ -17,11 +20,15 @@ func NewUsers(engine *gin.Engine, userService service.IUser) {
 		userService: userService,
 	}
 
-	group := engine.Group("v1/user")
+	group := engine.Group("chatting/user/v1")
 	{
 		group.GET("login", handler.Login)
 		group.GET("oauth2callback", handler.OAuth2Callback)
-		group.Use(oauth2.NewOAuth2Middleware()).GET("me", handler.Me)
+		group.Use(oauth2.NewOAuth2Middleware())
+		{
+			group.GET("me", handler.Me)
+			group.POST("logout", handler.Logout)
+		}
 	}
 }
 
@@ -81,4 +88,30 @@ func (handler *UserHandler) Me(c *gin.Context) {
 	}
 
 	c.JSON(response.OK(user))
+}
+
+func (handler *UserHandler) Logout(c *gin.Context) {
+	user, err := oauth2.GetUser(c)
+	if err != nil {
+		c.JSON(response.ServiceUnavailableMsg(err.Error()))
+		return
+	}
+
+	if len(user.RefreshTokenEncrypted) > 0 {
+		refreshToken, err := util.Decrypt(user.RefreshTokenEncrypted)
+		if err != nil {
+			c.JSON(response.ServiceUnavailableMsg(err.Error()))
+			return
+		}
+
+		if err := handler.userService.Logout(c, refreshToken, user.Id); err != nil {
+			c.JSON(response.ServiceUnavailableMsg(err.Error()))
+			return
+		}
+
+		c.JSON(response.OK(nil))
+		return
+	}
+
+	c.JSON(response.ServiceUnavailableMsg(errors.New("refresh token not found").Error()))
 }
