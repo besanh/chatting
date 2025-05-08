@@ -3,8 +3,10 @@ package config
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	cache "github.com/besanh/chatting/common/caching"
+	circuitbreaker "github.com/besanh/chatting/pkg/circuit_breaker"
 	messagequeue "github.com/besanh/chatting/pkg/message_queue"
 	"github.com/besanh/chatting/pkg/mongodb"
 	"github.com/besanh/chatting/pkg/redis"
@@ -12,6 +14,7 @@ import (
 	"github.com/besanh/chatting/repository"
 	log "github.com/besanh/logger/logging/slog"
 	"github.com/caarlos0/env"
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/spf13/viper"
@@ -43,6 +46,7 @@ type (
 		ApiVersion     string `mapstructure:"api_version"`
 		TlsCertPath    string `mapstructure:"tls_cert_path"`
 		TlsKeyPath     string `mapstructure:"tls_key_path"`
+		RateLimit      int    `mapstructure:"rate_limit"`
 	}
 
 	Pkg struct {
@@ -91,8 +95,11 @@ type (
 		} `mapstructure:"mongo_db"`
 
 		NatJetstream struct {
-			Enable bool   `mapstructure:"enable"`
-			Dsn    string `mapstructure:"dsn"`
+			Enable         bool          `mapstructure:"enable"`
+			Dsn            string        `mapstructure:"dsn"`
+			PublishTimeout time.Duration `mapstructure:"publish_timeout"`
+			Js             *nats.JetStreamContext
+			CB             *circuitbreaker.CBSetting `mapstructure:"cb"`
 		} `mapstructure:"nat_jetstream"`
 
 		Oauth2 Oauth2 `mapstructure:"oauth2"`
@@ -278,11 +285,25 @@ func initMongoDb(cfg *Config, mongoDB mongodb.IMongoDBClient) {
 }
 
 func initNatsJetstream(cfg *Config) {
-	nat := &messagequeue.NatsJetStream{
-		Config: messagequeue.Config{
-			Host: cfg.Pkg.NatJetstream.Dsn,
-		},
+	nc, err := nats.Connect(cfg.Pkg.NatJetstream.Dsn)
+	if err != nil {
+		log.Fatalf("nats connect failed: %v", err)
 	}
+
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatalf("nc jetStream failed: %v", err)
+	}
+
+	nat := &messagequeue.NatsJetStream{
+		Cfg: messagequeue.Config{
+			Host:           cfg.Pkg.NatJetstream.Dsn,
+			PublishTimeout: cfg.Pkg.NatJetstream.PublishTimeout,
+		},
+		Nc: nc,
+		Js: js,
+	}
+	cfg.Pkg.NatJetstream.Js = &nat.Js
 
 	// Connect to NATS JetStream
 	if err := nat.Connect(); err != nil {
@@ -290,6 +311,9 @@ func initNatsJetstream(cfg *Config) {
 		log.Errorf("nats jetstream connect error: %v", err)
 		panic(err)
 	}
+
+	// Init events
+	initEvents(cfg)
 }
 
 func initSql(cfg *Config) {
@@ -309,4 +333,27 @@ func initSql(cfg *Config) {
 		Driver:       sqlclient.POSTGRESQL,
 	}
 	repository.DBConn = sqlclient.NewSqlClient(sqlClientConfig)
+}
+
+func initEvents(cfg *Config) {
+	streamName := "USER_EVENT"
+	if _, err := (*cfg.Pkg.NatJetstream.Js).StreamInfo(streamName); err == nil {
+		log.Info("stream already exists")
+		return
+	}
+
+	subject := []string{"user_events.*"}
+	_, err := (*cfg.Pkg.NatJetstream.Js).AddStream(&nats.StreamConfig{
+		Name:      streamName,
+		Subjects:  subject,
+		Storage:   nats.FileStorage,
+		Retention: nats.LimitsPolicy,
+	})
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	log.Info("stream created")
+	return
 }

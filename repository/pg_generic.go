@@ -21,6 +21,7 @@ type IPgRepo[T model.GModel] interface {
 	TxSelectByQuery(ctx context.Context, tx bun.Tx, params []model.Param, limit, offset int) (entities *[]T, total int, err error)
 	TxInsert(ctx context.Context, tx bun.Tx, entity T) (err error)
 	TxUpdate(ctx context.Context, tx bun.Tx, entity T) (err error)
+	TxBulkInsert(ctx context.Context, tx bun.Tx, entities []T) (err error)
 }
 
 type PgRepo[T model.GModel] struct {
@@ -145,6 +146,13 @@ func (r *PgRepo[T]) TxDelete(ctx context.Context, tx bun.Tx, id string) (err err
 	_, err = tx.NewDelete().
 		Model((*T)(nil)).
 		Where("id = ?", id).
+		Exec(ctx)
+	return
+}
+
+func (r *PgRepo[T]) TxBulkInsert(ctx context.Context, tx bun.Tx, entities []T) (err error) {
+	_, err = tx.NewInsert().
+		Model(&entities).
 		Exec(ctx)
 	return
 }

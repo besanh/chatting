@@ -20,10 +20,22 @@ func InitTables(ctx context.Context, dbConn sqlclient.ISqlClientConn) {
 	if err := CreateTable(ctx, dbConn, (*model.User)(nil)); err != nil {
 		panic(err)
 	}
+	if err := CreateTable(ctx, dbConn, (*model.Chat)(nil)); err != nil {
+		panic(err)
+	}
+	if err := CreateTable(ctx, dbConn, (*model.ChatMember)(nil)); err != nil {
+		panic(err)
+	}
+	if err := CreateTable(ctx, dbConn, (*model.ChatRead)(nil)); err != nil {
+		panic(err)
+	}
 }
 
 func InitRepositories() {
 	UserRepo = NewUser()
+	ChatRepo = NewChat()
+	ChatMemberRepo = NewChatMember()
+	ChatReadRepo = NewChatRead()
 }
 
 func InitColumn(ctx context.Context, db sqlclient.ISqlClientConn) {

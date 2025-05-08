@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	cache "github.com/besanh/chatting/common/caching"
+	"github.com/besanh/chatting/common/caching"
 	"github.com/besanh/chatting/common/constant"
 	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/config"
@@ -68,7 +68,7 @@ func (s *User) Login(ctx context.Context) (callbackUrl string) {
 
 	// 4. Cache the verifier for your PKCE check
 	redisKey := fmt.Sprintf("pkce:%s", OAUTH2_STATE)
-	if err := cache.RCache.Set(redisKey, verifier, 3*time.Minute); err != nil {
+	if err := caching.RCache.Set(redisKey, verifier, 3*time.Minute); err != nil {
 		log.Error(err)
 		return
 	}
@@ -80,7 +80,7 @@ func (s *User) Login(ctx context.Context) (callbackUrl string) {
 
 func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Callback) (token string, err error) {
 	// 1. Verify PKCE state
-	raw := cache.RCache.Get(fmt.Sprintf("pkce:%s", callbackData.State))
+	raw := caching.RCache.Get(fmt.Sprintf("pkce:%s", callbackData.State))
 	if raw == nil {
 		err = fmt.Errorf("invalid state: %s", callbackData.State)
 		log.Error(err)
@@ -178,8 +178,8 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 		log.Error(err)
 		return
 	}
-	redisTx := cache.RCache.TxPineLine()
-	cache.RCache.TxSet(ctx, redisTx,
+	redisTx := caching.RCache.TxPineLine()
+	caching.RCache.TxSet(ctx, redisTx,
 		fmt.Sprintf("%s:%s", OAUTH2_TOKEN, userInfo.AccessToken),
 		buf, ttl,
 	)

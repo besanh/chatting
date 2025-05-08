@@ -8,7 +8,6 @@ import (
 
 	"github.com/besanh/chatting/model"
 	circuitbreaker "github.com/besanh/chatting/pkg/circuit_breaker"
-	"github.com/sony/gobreaker/v2"
 	"resty.dev/v3"
 )
 
@@ -37,17 +36,16 @@ func (s *User) getProfileUser(request OAuth2Request) (result model.UserProfile, 
 	client.SetTimeout(request.Timeout)
 	defer client.Close()
 
-	cbSetting := circuitbreaker.CBGeneric(request.CBSetting)
-	cb := gobreaker.NewCircuitBreaker[model.UserProfile](*cbSetting)
+	cb := circuitbreaker.NewCB(request.CBSetting)
 
-	result, err = cb.Execute(func() (res model.UserProfile, err error) {
+	res, err := cb.Execute(func() (err error) {
 		resp, err := client.R().
 			SetHeaders(map[string]string{
 				"Authorization": "Bearer " + request.AccessToken,
 				"Content-Type":  "application/json",
 				"Accept":        "application/json",
 			}).
-			SetResult(&res).
+			// SetResult(&res).
 			Get(request.Url)
 		if err != nil {
 			return
@@ -58,6 +56,10 @@ func (s *User) getProfileUser(request OAuth2Request) (result model.UserProfile, 
 
 		return
 	})
+
+	if res != nil {
+		result = res.(model.UserProfile)
+	}
 
 	if err != nil {
 		return
@@ -72,11 +74,9 @@ func (s *User) revokeGoogleToken(request OAuth2Request) error {
 	defer client.Close()
 
 	// Wrap the HTTP call in your circuit-breaker
-	cbSetting := circuitbreaker.CBGeneric(request.CBSetting)
-	cb := gobreaker.NewCircuitBreaker[struct{}](*cbSetting)
+	cb := circuitbreaker.NewCB(request.CBSetting)
 
-	_, err := cb.Execute(func() (struct{}, error) {
-		// Build a POST form with token=<refresh_token>
+	_, err := cb.Execute(func() (err error) {
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/x-www-form-urlencoded").
 			SetFormData(map[string]string{
@@ -84,12 +84,13 @@ func (s *User) revokeGoogleToken(request OAuth2Request) error {
 			}).
 			Post(request.Url)
 		if err != nil {
-			return struct{}{}, err
+			return
 		}
 		if resp.StatusCode() != http.StatusOK {
-			return struct{}{}, fmt.Errorf("oauth2 revoke failed: %s", resp.Status())
+			err = fmt.Errorf("oauth2 revoke failed: %s", resp.Status())
+			return
 		}
-		return struct{}{}, nil
+		return
 	})
 
 	return err

@@ -1,4 +1,4 @@
-package cache
+package caching
 
 import (
 	"context"
@@ -31,8 +31,8 @@ type (
 		HDel(key string, fields ...string) error
 		GetKeysPattern(pattern string) ([]string, error)
 		Close()
-		Incr(ctx context.Context, key string) error
-		Decr(ctx context.Context, key string) error
+		Incr(ctx context.Context, key string) (int64, error)
+		Decr(ctx context.Context, key string) (int64, error)
 		SetRaw(ctx context.Context, key, value string) error
 		HSetRaw(ctx context.Context, key, field, value string) error
 		SCARD(ctx context.Context, key string) (int64, error)
@@ -50,6 +50,7 @@ type (
 		SADDRaw(ctx context.Context, key string, value ...string) error
 		SREM(ctx context.Context, key string, value ...string) error
 		RPush(ctx context.Context, key string, value any) error
+		Expire(ctx context.Context, key string, time time.Duration) (bool, error)
 
 		// Transaction
 		TxPineLine() redis.Pipeliner
@@ -209,9 +210,9 @@ func (r *RedisCache) Close() {
 	r.client.Close()
 }
 
-func (c *RedisCache) Incr(ctx context.Context, key string) error {
-	_, err := c.client.Incr(ctx, key).Result()
-	return err
+func (c *RedisCache) Incr(ctx context.Context, key string) (int64, error) {
+	cnt, err := c.client.Incr(ctx, key).Result()
+	return cnt, err
 }
 
 func (c *RedisCache) SetRaw(ctx context.Context, key, value string) error {
@@ -225,12 +226,12 @@ func (c *RedisCache) HSetRaw(ctx context.Context, key, field, value string) erro
 	return err
 }
 
-func (c *RedisCache) Decr(ctx context.Context, key string) error {
-	_, err := c.client.Decr(ctx, key).Result()
+func (c *RedisCache) Decr(ctx context.Context, key string) (int64, error) {
+	cnt, err := c.client.Decr(ctx, key).Result()
 	if err == redis.Nil {
-		return errors.New("key not found")
+		return 0, errors.New("key not found")
 	}
-	return err
+	return cnt, err
 }
 
 func (c *RedisCache) SADD(ctx context.Context, key string, value ...any) error {
@@ -369,4 +370,9 @@ func (c *RedisCache) TxSet(ctx context.Context, redisTx redis.Pipeliner, key str
 func (c *RedisCache) TxExec(ctx context.Context, redisTx redis.Pipeliner) error {
 	_, err := redisTx.Exec(ctx)
 	return err
+}
+
+func (c *RedisCache) Expire(ctx context.Context, key string, time time.Duration) (bool, error) {
+	exist, err := c.client.Expire(ctx, key, time).Result()
+	return exist, err
 }
