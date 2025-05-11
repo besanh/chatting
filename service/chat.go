@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/besanh/chatting/common/constant"
 	"github.com/besanh/chatting/model"
@@ -12,7 +13,7 @@ import (
 
 type (
 	IChat interface {
-		InsertChat(ctx context.Context, chat model.PinelineCreateChatRequest) (id string, err error)
+		TxInsertChat(ctx context.Context, chat model.PinelineCreateChatRequest) (id string, err error)
 		// GetChatById(ctx context.Context, chatId string) (model.Chat, error)
 		// GetChats(ctx context.Context, filter model.Param) (int, []model.Chat, error)
 		// UpdateChatById(ctx context.Context, chat model.Chat) error
@@ -32,11 +33,24 @@ func NewChat(chatRepo repository.IChat, chatMemberRepo repository.IChatMember) I
 	}
 }
 
-func (s *Chat) InsertChat(ctx context.Context, request model.PinelineCreateChatRequest) (id string, err error) {
+func (s *Chat) TxInsertChat(ctx context.Context, request model.PinelineCreateChatRequest) (id string, err error) {
+	// Case 1: 1:1 chat, check if 2 members exist a conversation
+	chatExist, err := s.ChatRepo.GetChatExist(ctx, repository.DBConn, model.ChatFilter{
+		MemberIds: request.MemberIds,
+	})
+	if err != nil {
+		log.Error(err)
+		return
+	} else if chatExist != nil {
+		err = fmt.Errorf("chat already exists between %s and %s", request.MemberIds[0], request.MemberIds[1])
+		log.Error(err)
+		return
+	}
+
 	chat := &model.Chat{
 		GBase:   model.InitPgBase(),
 		Title:   request.Title,
-		IsGroup: request.IsGroup.Bool,
+		IsGroup: request.IsGroup,
 	}
 
 	chatMembers := make([]model.ChatMember, len(request.MemberIds))
@@ -63,12 +77,6 @@ func (s *Chat) InsertChat(ctx context.Context, request model.PinelineCreateChatR
 
 		return
 	}); err != nil {
-		return
-	}
-
-	err = s.ChatRepo.Insert(ctx, repository.DBConn, *chat)
-	if err != nil {
-		log.Error(err)
 		return
 	}
 

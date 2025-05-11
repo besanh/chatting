@@ -14,22 +14,22 @@ import (
 
 type (
 	IRedisCache interface {
-		Keys(pattern string) ([]string, error)
-		Set(key string, value any, ttl time.Duration) error
-		SetTTL(key string, value any, t time.Duration) (string, error)
-		Get(key string) any
-		IsExisted(key string) (bool, error)
-		IsHExisted(list, key string) (bool, error)
-		HGet(list, key string) (string, error)
-		HGetAll(list string) (map[string]string, error)
-		HSet(key string, values []any) error
-		HMGet(key string, fields ...string) ([]any, error)
-		HMSet(key string, values ...any) error
-		HMDel(key string, fields ...string) error
-		FLUSHALL() any
-		Del(key []string) error
-		HDel(key string, fields ...string) error
-		GetKeysPattern(pattern string) ([]string, error)
+		Keys(ctx context.Context, pattern string) ([]string, error)
+		Set(ctx context.Context, key string, value any, ttl time.Duration) error
+		SetTTL(ctx context.Context, key string, value any, t time.Duration) (string, error)
+		Get(ctx context.Context, key string) any
+		IsExisted(ctx context.Context, key string) (bool, error)
+		IsHExisted(ctx context.Context, list, key string) (bool, error)
+		HGet(ctx context.Context, list, key string) (string, error)
+		HGetAll(ctx context.Context, list string) (map[string]string, error)
+		HSet(ctx context.Context, key string, values []any) error
+		HMGet(ctx context.Context, key string, fields ...string) ([]any, error)
+		HMSet(ctx context.Context, key string, values ...any) error
+		HMDel(ctx context.Context, key string, fields ...string) error
+		FLUSHALL(ctx context.Context) any
+		Del(ctx context.Context, key []string) error
+		HDel(ctx context.Context, key string, fields ...string) error
+		GetKeysPattern(ctx context.Context, pattern string) ([]string, error)
 		Close()
 		Incr(ctx context.Context, key string) (int64, error)
 		Decr(ctx context.Context, key string) (int64, error)
@@ -55,6 +55,7 @@ type (
 		// Transaction
 		TxPineLine() redis.Pipeliner
 		TxSet(ctx context.Context, redisTx redis.Pipeliner, key string, value any, expire time.Duration)
+		TxHSet(ctx context.Context, redisTx redis.Pipeliner, key string, values []any) error
 		TxExec(ctx context.Context, redisTx redis.Pipeliner) error
 	}
 	RedisCache struct {
@@ -74,16 +75,12 @@ func NewRedisCache(client *redis.Client) IRedisCache {
 	}
 }
 
-func (r *RedisCache) Keys(pattern string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) Keys(ctx context.Context, pattern string) ([]string, error) {
 	ret, err := r.client.Keys(ctx, pattern).Result()
 	return ret, err
 }
 
-func (r *RedisCache) Set(key string, value any, ttl time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	val, _ := util.ParseAnyToString(value)
 	if _, err := r.client.Set(ctx, key, val, ttl).Result(); err != nil {
 		log.Error(err)
@@ -92,9 +89,7 @@ func (r *RedisCache) Set(key string, value any, ttl time.Duration) error {
 	return nil
 }
 
-func (r *RedisCache) Get(key string) any {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) Get(ctx context.Context, key string) any {
 	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
 		log.Error(err)
@@ -103,16 +98,12 @@ func (r *RedisCache) Get(key string) any {
 	return val
 }
 
-func (r *RedisCache) SetTTL(key string, value any, t time.Duration) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) SetTTL(ctx context.Context, key string, value any, t time.Duration) (string, error) {
 	ret, err := r.client.Set(ctx, key, value, t).Result()
 	return ret, err
 }
 
-func (r *RedisCache) IsExisted(key string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) IsExisted(ctx context.Context, key string) (bool, error) {
 	res, err := r.client.Exists(ctx, key).Result()
 	if res == 0 || err != nil {
 		return false, err
@@ -120,9 +111,7 @@ func (r *RedisCache) IsExisted(key string) (bool, error) {
 	return true, nil
 }
 
-func (r *RedisCache) IsHExisted(list, key string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) IsHExisted(ctx context.Context, list, key string) (bool, error) {
 	res, err := r.client.HExists(ctx, list, key).Result()
 	if !res || err != nil {
 		return false, err
@@ -130,78 +119,58 @@ func (r *RedisCache) IsHExisted(list, key string) (bool, error) {
 	return true, nil
 }
 
-func (r *RedisCache) HGet(list, key string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HGet(ctx context.Context, list, key string) (string, error) {
 	ret, err := r.client.HGet(ctx, list, key).Result()
 	return ret, err
 }
 
-func (r *RedisCache) HGetAll(list string) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HGetAll(ctx context.Context, list string) (map[string]string, error) {
 	ret, err := r.client.HGetAll(ctx, list).Result()
 	return ret, err
 }
 
-func (r *RedisCache) HSet(key string, values []any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HSet(ctx context.Context, key string, values []any) error {
 	_, err := r.client.HSet(ctx, key, values...).Result()
 	return err
 }
 
-func (r *RedisCache) Del(key []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) Del(ctx context.Context, key []string) error {
 	err := r.client.Del(ctx, key...).Err()
 	return err
 }
 
-func (r *RedisCache) HMSet(key string, values ...any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	ret, err := r.client.HMSet(ctx, key, values...).Result()
+func (r *RedisCache) HMSet(ctx context.Context, key string, values ...any) error {
+	res, err := r.client.HMSet(ctx, key, values...).Result()
 	if err != nil {
 		return err
 	}
-	if !ret {
+	if !res {
 		err = errors.New("HashMap Set failed")
 	}
 	return err
 }
 
-func (r *RedisCache) HMDel(key string, fields ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HMDel(ctx context.Context, key string, fields ...string) error {
 	err := r.client.HDel(ctx, key, fields...).Err()
 	return err
 }
 
-func (r *RedisCache) FLUSHALL() any {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) FLUSHALL(ctx context.Context) any {
 	ret := r.client.FlushAll(ctx)
 	return ret
 }
 
-func (r *RedisCache) HMGet(key string, fields ...string) ([]any, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HMGet(ctx context.Context, key string, fields ...string) ([]any, error) {
 	ret, err := r.client.HMGet(ctx, key, fields...).Result()
 	return ret, err
 }
 
-func (r *RedisCache) HDel(key string, fields ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) HDel(ctx context.Context, key string, fields ...string) error {
 	err := r.client.HDel(ctx, key, fields...).Err()
 	return err
 }
 
-func (r *RedisCache) GetKeysPattern(pattern string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func (r *RedisCache) GetKeysPattern(ctx context.Context, pattern string) ([]string, error) {
 	ret, err := r.client.Keys(ctx, pattern).Result()
 	return ret, err
 }
@@ -375,4 +344,9 @@ func (c *RedisCache) TxExec(ctx context.Context, redisTx redis.Pipeliner) error 
 func (c *RedisCache) Expire(ctx context.Context, key string, time time.Duration) (bool, error) {
 	exist, err := c.client.Expire(ctx, key, time).Result()
 	return exist, err
+}
+
+func (c *RedisCache) TxHSet(ctx context.Context, redisTx redis.Pipeliner, key string, values []any) error {
+	_, err := redisTx.HSet(ctx, key, values).Result()
+	return err
 }

@@ -1,6 +1,7 @@
 package oauth2
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,7 +19,7 @@ func NewOAuth2Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		headerValue := c.GetHeader("Authorization")
 		token := parseTokenFromAuthorization(headerValue)
-		user, err := validateToken(token)
+		user, err := validateToken(c, token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, map[string]any{
 				"error": err.Error(),
@@ -34,9 +35,9 @@ func parseTokenFromAuthorization(authorizationHeader string) string {
 	return strings.Replace(authorizationHeader, "Bearer ", "", 1)
 }
 
-func validateToken(tokenString string) (userInfo *model.User, err error) {
+func validateToken(ctx context.Context, tokenString string) (userInfo *model.User, err error) {
 	// Because the token is stored in redis, so I need to get the user info from it
-	dataCache := cache.RCache.Get(fmt.Sprintf("%s:%s", service.OAUTH2_TOKEN, tokenString))
+	dataCache := cache.RCache.Get(ctx, fmt.Sprintf("%s:%s", service.OAUTH2_TOKEN, tokenString))
 	if dataCache == nil {
 		err = fmt.Errorf("invalid token")
 		log.Error(err)

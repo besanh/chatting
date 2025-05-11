@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/model"
 	circuitbreaker "github.com/besanh/chatting/pkg/circuit_breaker"
 	"resty.dev/v3"
@@ -38,14 +39,14 @@ func (s *User) getProfileUser(request OAuth2Request) (result model.UserProfile, 
 
 	cb := circuitbreaker.NewCB(request.CBSetting)
 
-	res, err := cb.Execute(func() (err error) {
+	res, err := cb.Execute(func() (res any, err error) {
 		resp, err := client.R().
 			SetHeaders(map[string]string{
 				"Authorization": "Bearer " + request.AccessToken,
 				"Content-Type":  "application/json",
 				"Accept":        "application/json",
 			}).
-			// SetResult(&res).
+			SetResult(&res).
 			Get(request.Url)
 		if err != nil {
 			return
@@ -57,12 +58,14 @@ func (s *User) getProfileUser(request OAuth2Request) (result model.UserProfile, 
 		return
 	})
 
-	if res != nil {
-		result = res.(model.UserProfile)
-	}
-
 	if err != nil {
 		return
+	}
+
+	if res != nil {
+		if err = util.ParseAnyToAny(res, &result); err != nil {
+			return
+		}
 	}
 
 	return
@@ -76,7 +79,7 @@ func (s *User) revokeGoogleToken(request OAuth2Request) error {
 	// Wrap the HTTP call in your circuit-breaker
 	cb := circuitbreaker.NewCB(request.CBSetting)
 
-	_, err := cb.Execute(func() (err error) {
+	_, err := cb.Execute(func() (res any, err error) {
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/x-www-form-urlencoded").
 			SetFormData(map[string]string{

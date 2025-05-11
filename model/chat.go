@@ -1,7 +1,6 @@
 package model
 
 import (
-	"database/sql"
 	"errors"
 	"time"
 
@@ -11,27 +10,34 @@ import (
 type (
 	Chat struct {
 		*GBase
-		bun.BaseModel `bun:"table:chat"`
-		Title         string `json:"title" bun:"title,type:text,notnull"`
-		IsGroup       bool   `json:"is_group" bun:"is_group,type:boolean,notnull,default:false"`
+		bun.BaseModel `bun:"table:chat,alias:chat"`
+		Title         string        `json:"title" bun:"title,type:text,notnull"`
+		IsGroup       bool          `json:"is_group" bun:"is_group,type:boolean,notnull,default:false"`
+		ChatMember    []*ChatMember `json:"chat_member" bun:"rel:has-many,join:id=chat_id"`
 	}
 
 	PinelineCreateChatRequest struct {
-		Title   string       `json:"title" form:"required"`
-		IsGroup sql.NullBool `json:"is_group" form:"required"`
+		Title   string `json:"title" form:"required"`
+		IsGroup bool   `json:"is_group" form:"required"`
 
 		MemberIds []string `json:"member_ids" form:"required"`
+	}
+
+	ChatFilter struct {
+		ChatId    string   `json:"chat_id"`
+		MemberIds []string `json:"member_ids"`
 	}
 )
 
 type (
 	ChatMember struct {
 		*GBase
-		bun.BaseModel `bun:"table:chat_member"`
+		bun.BaseModel `bun:"table:chat_member,alias:cm"`
 		ChatId        string    `json:"chat_id" bun:"chat_id,pk,type:uuid,notnull"`
 		UserId        string    `json:"user_id" bun:"user_id,type:uuid,notnull"`
 		JoinedAt      time.Time `json:"joined_at" bun:",nullzero,notnull,default:current_timestamp"`
 		Role          string    `json:"role" bun:",notnull,default:'member'"`
+		Chat          *Chat     `json:"chat" bun:"rel:belongs-to,join:chat_id=id"`
 	}
 )
 

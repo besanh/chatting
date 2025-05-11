@@ -64,7 +64,7 @@ func NewWs(r *gin.Engine, cfg config.Config, subscriberService service.ISubscrib
 func (handler *WsHandler) Subscribe(c *gin.Context) {
 	userID := c.Param("user_id")
 	sessionID := c.Param("session_id")
-	if userID == "" || sessionID == "" {
+	if len(userID) == 0 || len(sessionID) == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing user_id or session_id"})
 		return
 	}
@@ -124,7 +124,7 @@ func (handler *WsHandler) Subscribe(c *gin.Context) {
 	<-ctx.Done()
 
 	// Cleanup Redis
-	deleteSessionRedis(userID, sessionID)
+	deleteSessionRedis(ctx, userID, sessionID)
 }
 
 func storeSessionRedis(ctx *gin.Context, userID, sessionID string) error {
@@ -144,16 +144,16 @@ func storeSessionRedis(ctx *gin.Context, userID, sessionID string) error {
 	}
 
 	values := []any{field, string(byteData)}
-	err = caching.RCache.HSet(service.CHATTING_CONNECTION_KEY, values)
+	err = caching.RCache.HSet(ctx, service.CHATTING_CONNECTION_KEY, values)
 	if err != nil {
 		log.Error("failed to store session in Redis hash: ", err)
 	}
 	return err
 }
 
-func deleteSessionRedis(userID, sessionID string) {
+func deleteSessionRedis(ctx context.Context, userID, sessionID string) {
 	key := fmt.Sprintf("ws:user_sessions:%s", userID)
-	if err := caching.RCache.HDel(key, sessionID); err != nil {
+	if err := caching.RCache.HDel(ctx, key, sessionID); err != nil {
 		log.Warn("failed to delete session from Redis hash: ", err)
 	}
 }

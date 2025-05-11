@@ -68,7 +68,7 @@ func (s *User) Login(ctx context.Context) (callbackUrl string) {
 
 	// 4. Cache the verifier for your PKCE check
 	redisKey := fmt.Sprintf("pkce:%s", OAUTH2_STATE)
-	if err := caching.RCache.Set(redisKey, verifier, 3*time.Minute); err != nil {
+	if err := caching.RCache.Set(ctx, redisKey, verifier, 3*time.Minute); err != nil {
 		log.Error(err)
 		return
 	}
@@ -79,8 +79,7 @@ func (s *User) Login(ctx context.Context) (callbackUrl string) {
 }
 
 func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Callback) (token string, err error) {
-	// 1. Verify PKCE state
-	raw := caching.RCache.Get(fmt.Sprintf("pkce:%s", callbackData.State))
+	raw := caching.RCache.Get(ctx, fmt.Sprintf("pkce:%s", callbackData.State))
 	if raw == nil {
 		err = fmt.Errorf("invalid state: %s", callbackData.State)
 		log.Error(err)
@@ -88,7 +87,6 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 	}
 	verifier := raw.(string)
 
-	// 2. Exchange code for tokens
 	userInfo, err := s.oAuth2Client.Exchange(ctx, callbackData.Code,
 		oauth2.SetAuthURLParam("code_verifier", verifier),
 	)
@@ -96,9 +94,7 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 		log.Error(err)
 		return
 	}
-	ttl := time.Until(userInfo.Expiry)
 
-	// 3. Encrypt only if non-empty (Google only sends refresh_token on first consent)
 	var newEnc string
 	if userInfo.RefreshToken != "" {
 		newEnc, err = util.Encrypt(userInfo.RefreshToken)
@@ -108,7 +104,6 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 		}
 	}
 
-	// 4. Build your model.User
 	user := model.User{
 		GBase:  model.InitPgBase(),
 		Status: constant.USER_STATUS_ACTIVE,
@@ -131,7 +126,6 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 	}
 	user.UserProfile = profile
 
-	// 5. Upsert into Postgres, preserving existing encrypted token if none returned
 	if err = repository.DBConn.GetDB().RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		users, total, err := s.userRepo.SelectByQuery(ctx, repository.DBConn,
 			[]model.Param{{
@@ -172,23 +166,19 @@ func (s *User) OAuth2Callback(ctx context.Context, callbackData *model.OAuth2Cal
 		return
 	}
 
-	// 6. Store into Redis (now with the correct encrypted token)
 	buf, err := json.Marshal(user)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	redisTx := caching.RCache.TxPineLine()
-	caching.RCache.TxSet(ctx, redisTx,
-		fmt.Sprintf("%s:%s", OAUTH2_TOKEN, userInfo.AccessToken),
-		buf, ttl,
-	)
-	if _, err = redisTx.Exec(ctx); err != nil {
+	ttl := time.Until(userInfo.Expiry)
+	caching.RCache.TxSet(ctx, redisTx, fmt.Sprintf("%s:%s", OAUTH2_TOKEN, userInfo.AccessToken), buf, ttl)
+	if err = caching.RCache.TxExec(ctx, redisTx); err != nil {
 		log.Error(err)
 		return
 	}
 
-	// 7. Return the new access token
 	token = userInfo.AccessToken
 	return
 }

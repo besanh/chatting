@@ -52,9 +52,6 @@ func NewCB(setting CBSetting) *CB {
 
 // Execute runs the given function under circuit breaker control.
 // It returns fn's error or gobreaker.ErrOpenState if the circuit is open.
-func (c *CB) Execute(fn func() error) (result any, err error) {
-	result, err = c.breaker.Execute(func() (any, error) {
-		return nil, fn()
-	})
-	return
+func (c *CB) Execute(fn func() (any, error)) (any, error) {
+	return c.breaker.Execute(fn)
 }

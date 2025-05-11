@@ -39,7 +39,7 @@ func (handler *ChatHandler) InsertChat(c *gin.Context) {
 		return
 	}
 
-	id, err := handler.ChatService.InsertChat(c, *request)
+	id, err := handler.ChatService.TxInsertChat(c, *request)
 	if err != nil {
 		c.JSON(response.ServiceUnavailableMsg(err.Error()))
 		return

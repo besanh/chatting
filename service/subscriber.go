@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/besanh/chatting/common/caching"
 	"github.com/besanh/chatting/common/util"
@@ -36,12 +37,14 @@ var (
 )
 
 func NewSubscriberService(cfg config.Config, cbSetting *circuitbreaker.CBSetting, google translate.IGoogleTranslate) ISubscriber {
-	addressKey, err := caching.RCache.Keys(CHATTING_CONNECTION_KEY)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	addressKey, err := caching.RCache.Keys(ctx, CHATTING_CONNECTION_KEY)
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	} else if len(addressKey) > 0 {
-		if err := caching.RCache.Del(addressKey); err != nil {
+		if err := caching.RCache.Del(ctx, addressKey); err != nil {
 			log.Error(err)
 			panic(err)
 		}
@@ -62,7 +65,7 @@ func (s *SubscriberService) Subscribe(ctx context.Context, userID, sessionID str
 	durable := sessionID
 
 	// wrap subscribe in circuit breaker
-	_, err = s.cb.Execute(func() (err error) {
+	_, err = s.cb.Execute(func() (res any, err error) {
 		sub, err := (*s.cfg.Pkg.NatJetstream.Js).Subscribe(subject, func(msg *nats.Msg) {
 			var evt model.WsEvent
 			if err := json.Unmarshal(msg.Data, &evt); err != nil {
@@ -108,7 +111,7 @@ func (s *SubscriberService) Publish(ctx context.Context, userID string, evt *mod
 	}
 	subject := fmt.Sprintf("user_events.%s", userID)
 
-	_, err = s.cb.Execute(func() (err error) {
+	_, err = s.cb.Execute(func() (res any, err error) {
 		_, err = (*s.cfg.Pkg.NatJetstream.Js).Publish(subject, payload)
 		log.Error(err)
 		return
