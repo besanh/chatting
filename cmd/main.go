@@ -1,15 +1,13 @@
 package main
 
 import (
-	"context"
 	"errors"
 	_ "net/http/pprof"
 	"slices"
-	"time"
 
 	v1 "github.com/besanh/chatting/api/v1"
 	"github.com/besanh/chatting/config"
-	translate "github.com/besanh/chatting/external/google"
+	"github.com/besanh/chatting/external/translation"
 	circuitbreaker "github.com/besanh/chatting/pkg/circuit_breaker"
 	"github.com/besanh/chatting/pkg/mongodb"
 	pkgOauth2 "github.com/besanh/chatting/pkg/oauth2"
@@ -47,10 +45,7 @@ func initLayers(httpRouter *gin.Engine) {
 	service.API_SERVICE_NAME = cfg.Api.ApiServiceName
 	service.API_VERSION = cfg.Api.ApiVersion
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	// Repository
-	repository.InitTables(ctx, repository.DBConn)
 	repository.InitRepositories()
 
 	// Service
@@ -72,5 +67,5 @@ func initLayers(httpRouter *gin.Engine) {
 		},
 		IsSuccessful: func(err error) bool { return err == nil },
 	}
-	v1.NewWs(httpRouter, cfg, service.NewSubscriberService(cfg, &cbSetting, translate.NewGoogleTranslate(cfg)))
+	v1.NewWs(httpRouter, cfg, service.NewSubscriberService(cfg, &cbSetting, translation.NewGoogleTranslate(cfg)))
 }

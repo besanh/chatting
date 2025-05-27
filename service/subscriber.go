@@ -10,7 +10,7 @@ import (
 	"github.com/besanh/chatting/common/caching"
 	"github.com/besanh/chatting/common/util"
 	"github.com/besanh/chatting/config"
-	translate "github.com/besanh/chatting/external/google"
+	"github.com/besanh/chatting/external/translation"
 	"github.com/besanh/chatting/model"
 	circuitbreaker "github.com/besanh/chatting/pkg/circuit_breaker"
 	log "github.com/besanh/logger/logging/slog"
@@ -24,7 +24,7 @@ type (
 		HandleGoogleApi(request model.TranslationRequest) (resp *model.TranslationResponse, err error)
 	}
 	SubscriberService struct {
-		google translate.IGoogleTranslate
+		google translation.IGoogleTranslate
 		cfg    config.Config
 		cb     *circuitbreaker.CB
 	}
@@ -36,7 +36,7 @@ var (
 	CHATTING_CONNECTION_KEY string = "chatting_connection"
 )
 
-func NewSubscriberService(cfg config.Config, cbSetting *circuitbreaker.CBSetting, google translate.IGoogleTranslate) ISubscriber {
+func NewSubscriberService(cfg config.Config, cbSetting *circuitbreaker.CBSetting, google translation.IGoogleTranslate) ISubscriber {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	addressKey, err := caching.RCache.Keys(ctx, CHATTING_CONNECTION_KEY)

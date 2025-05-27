@@ -1,0 +1,105 @@
+name: anhle-chatting
+services:
+  anhle-chatting:
+    image: anhle3532/chatting:latest
+    container_name: anhle-chatting
+    ports:
+      - "8000:8000"
+    environment:
+      - API_SERVICE_NAME=chatting
+      - API_VERSION=v1.0.0
+      - TLS_CERT_PATH=./cert/ws_cert.pem
+      - TLS_KEY_PATH=./cert/ws_key.pem
+      - RATE_LIMIT=10
+    networks:
+      - chatting-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - chatting-network
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - chatting-network
+
+  zookeeper:
+    image: bitnami/zookeeper:3.7
+    container_name: zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    networks:
+      - chatting-network
+
+  kafka:
+    image: bitnami/kafka:2.8.1
+    container_name: kafka
+    ports:
+      - "19092:9092"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://host.docker.internal:19092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      - zookeeper
+    networks:
+      - chatting-network
+
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.email=you@example.com
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chatting.rule=Host(`chatting.localhost`)"
+      - "traefik.http.routers.chatting.entrypoints=web"
+      - "traefik.http.services.chatting.loadbalancer.server.port=8000"
+      - "traefik.http.routers.chatting.entrypoints=websecure"
+      - "traefik.http.routers.chatting.tls=true"
+      - "traefik.http.routers.chatting.tls.certresolver=le"
+      - "traefik.http.middlewares.ratelimit.limit.ratelimit.average=10"
+      - "traefik.http.middlewares.ratelimit.limit.ratelimit.burst=20"
+      - "traefik.http.routers.chatting.middlewares=ratelimit"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - chatting-network
+
+
+networks:
+  chatting-network:
+    external: true
+volumes:
+  grafana-storage:

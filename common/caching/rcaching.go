@@ -57,6 +57,7 @@ type (
 		TxSet(ctx context.Context, redisTx redis.Pipeliner, key string, value any, expire time.Duration)
 		TxHSet(ctx context.Context, redisTx redis.Pipeliner, key string, values []any) error
 		TxExec(ctx context.Context, redisTx redis.Pipeliner) error
+		Scan(ctx context.Context, cursor uint64, pattern string, count int64) *redis.ScanIterator
 	}
 	RedisCache struct {
 		client *redis.Client
@@ -349,4 +350,8 @@ func (c *RedisCache) Expire(ctx context.Context, key string, time time.Duration)
 func (c *RedisCache) TxHSet(ctx context.Context, redisTx redis.Pipeliner, key string, values []any) error {
 	_, err := redisTx.HSet(ctx, key, values).Result()
 	return err
+}
+
+func (c *RedisCache) Scan(ctx context.Context, cursor uint64, pattern string, count int64) *redis.ScanIterator {
+	return c.client.Scan(ctx, cursor, pattern, count).Iterator()
 }

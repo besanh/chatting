@@ -1,9 +1,9 @@
 FROM golang:1.24-bullseye as builder
 LABEL stage=Builder
 
-ENV GOPRIVATE=github.com/besanh/chatbot_gpt
-ENV GROUP_NAME=chatbot
-ENV PROJECT_NAME=chatbot_gpt
+ENV GOPRIVATE=anhle3532/chatting
+ENV GROUP_NAME=anhle3532/chatting
+ENV PROJECT_NAME=anhle3532/chatting
 
 ARG GOENV=local
 
@@ -13,6 +13,7 @@ COPY ./common ./common
 COPY ./model ./model
 COPY ./pkg ./pkg
 COPY ./middleware ./middleware
+COPY ./external ./external
 COPY ./repository ./repository
 COPY ./server ./server
 COPY ./service ./service
@@ -22,8 +23,11 @@ COPY ./go.mod .
 COPY ./go.sum .
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o main ./*.go
-
+# RUN CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -installsuffix cgo -o main ./*.go
+RUN CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    go build -a -installsuffix cgo -o main ./*.go
 
 FROM debian:bullseye-slim as final
 LABEL stage=Final
